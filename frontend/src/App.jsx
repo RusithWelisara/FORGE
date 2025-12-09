@@ -40,6 +40,52 @@ function App({ exportFn }) {
   const [selectedId, setSelectedId] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [backupData, setBackupData] = useState(null);
+  const [history, setHistory] = useState([INITIAL_PROJECT]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Helper to save state
+  const pushToHistory = (newData) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newData);
+    // Limit history
+    if (newHistory.length > 50) newHistory.shift();
+
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setProjectData(newData);
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setProjectData(history[newIndex]);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setProjectData(history[newIndex]);
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [history, historyIndex]);
 
   useEffect(() => {
     localStorage.setItem('forge-project', JSON.stringify(projectData));
@@ -54,7 +100,7 @@ function App({ exportFn }) {
     };
     const newScenes = [...projectData.scenes];
     newScenes[0].objects.push(newObj);
-    setProjectData({ ...projectData, scenes: newScenes });
+    pushToHistory({ ...projectData, scenes: newScenes });
     setSelectedId(newObj.id);
   };
 
@@ -63,7 +109,7 @@ function App({ exportFn }) {
     if (!window.confirm('Delete object?')) return;
     const newScenes = [...projectData.scenes];
     newScenes[0].objects = newScenes[0].objects.filter(o => o.id !== id);
-    setProjectData({ ...projectData, scenes: newScenes });
+    pushToHistory({ ...projectData, scenes: newScenes });
     if (selectedId === id) setSelectedId(null);
   };
 
@@ -73,7 +119,7 @@ function App({ exportFn }) {
     if (objIndex === -1) return;
 
     newScenes[0].objects[objIndex] = { ...newScenes[0].objects[objIndex], ...changes };
-    setProjectData({ ...projectData, scenes: newScenes });
+    pushToHistory({ ...projectData, scenes: newScenes });
   };
 
   const handleGenerateLogic = (prompt) => {
@@ -85,7 +131,7 @@ function App({ exportFn }) {
 
     const newScenes = [...projectData.scenes];
     newScenes[0].logic = [...newScenes[0].logic, ...newLogic];
-    setProjectData({ ...projectData, scenes: newScenes });
+    pushToHistory({ ...projectData, scenes: newScenes });
     alert(`Added ${newLogic.length} logic blocks!`);
   };
 
@@ -104,6 +150,8 @@ function App({ exportFn }) {
       <div className="header">
         <h2 style={{ margin: 0 }}>FORGE Engine</h2>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+          <button onClick={undo} disabled={historyIndex <= 0} style={{ opacity: historyIndex <= 0 ? 0.5 : 1 }}>↶ Undo</button>
+          <button onClick={redo} disabled={historyIndex >= history.length - 1} style={{ opacity: historyIndex >= history.length - 1 ? 0.5 : 1 }}>↷ Redo</button>
           <button onClick={togglePlay} style={{ background: isPlaying ? '#cf6679' : '#03dac6', color: '#000', fontWeight: 'bold' }}>
             {isPlaying ? 'STOP' : 'PLAY'}
           </button>
@@ -122,11 +170,20 @@ function App({ exportFn }) {
       <EditorCanvas
         projectData={projectData}
         isPlaying={isPlaying}
+        onObjectUpdate={handleUpdateObject}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
       />
 
       <PropertiesPanel
         object={projectData.scenes[0].objects.find(o => o.id === selectedId)}
+        logic={projectData.scenes[0].logic}
         onChange={handleUpdateObject}
+        onLogicUpdate={(newLogic) => {
+          const newScenes = [...projectData.scenes];
+          newScenes[0].logic = newLogic;
+          pushToHistory({ ...projectData, scenes: newScenes });
+        }}
       />
 
       <AIPanel onGenerate={handleGenerateLogic} />

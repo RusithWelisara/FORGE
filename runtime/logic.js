@@ -20,64 +20,75 @@ export class LogicInterpreter {
         });
     }
 
+    performAction(target, action, params, context = {}) {
+        if (!target) return;
+
+        if (action === 'Move') {
+            const speed = params.speed || 100;
+            // Direction from context or params
+            if (context.direction === 'left') target.velocityX = -speed;
+            if (context.direction === 'right') target.velocityX = speed;
+            if (context.direction === 'none') {
+                // Maybe stop?
+            }
+        }
+
+        if (action === 'Jump') {
+            const strength = params.strength || 300;
+            if (Math.abs(target.velocityY) < 1) {
+                target.velocityY = -strength;
+            }
+        }
+
+        if (action === 'ChangeColor') {
+            target.color = params.color || '#ffffff';
+        }
+
+        if (action === 'Destroy') {
+            target._shouldDestroy = true;
+        }
+
+        if (action === 'Bounce') {
+            target.velocityY = -300;
+        }
+
+        if (action === 'SpawnObject') {
+            // Basic mock spawn: duplicate target or generic
+            // For MVP, maybe we skip deep implementation unless requested.
+        }
+    }
+
     handleInputBlock(block, dt) {
         if (this.input.isDown(block.event)) {
             const targets = this.objects.filter(o => o.id === block.target);
             targets.forEach(target => {
-                if (block.action === 'Move') {
-                    // e.g. "Move", speed: { x: 100, y: 0 } or just speed number + direction implied by key?
-                    // Prompt says: Event: ArrowKeys, Action: Move, Speed: <number>
-                    // We need to map Arrow keys to direction
-                    const speed = block.params.speed || 100;
-                    if (block.event === 'ArrowLeft') target.velocityX = -speed;
-                    if (block.event === 'ArrowRight') target.velocityX = speed;
-                    // If we want detailed control, we might add friction elsewhere, output simply sets velocity
-                }
-                if (block.action === 'Jump') {
-                    // Check if grounded? For MVP, infinite jump or we check collision elsewhere.
-                    // Simple impulse
-                    const strength = block.params.strength || 300;
-                    // Only jump if velocityY is near 0 (simple ground check)
-                    if (Math.abs(target.velocityY) < 1) {
-                        target.velocityY = -strength;
-                    }
-                }
+                let context = {};
+                if (block.event === 'ArrowLeft') context.direction = 'left';
+                if (block.event === 'ArrowRight') context.direction = 'right';
+
+                this.performAction(target, block.action, block.params, context);
             });
-        } else {
-            // Stop movement if key released?
-            // "Move" action usually implies continuous hold.
-            // If ArrowLeft/Right not held, we might want to dampen X velocity
-            // But logic block usually triggers ON event.
-            // For MVP: we might need a friction system in engine default update.
         }
     }
 
     handleTimerBlock(block, dt) {
-        // block.params.interval
-        // block.state.accumulator
         if (!block.state) block.state = { accumulator: 0 };
         block.state.accumulator += dt;
         if (block.state.accumulator >= block.params.interval) {
             block.state.accumulator = 0;
+
             // Action
-            if (block.action === 'SpawnObject') {
-                // Mock spawn
-                // We need access to engine to add object... 
-                // Currently `objects` is a reference to the array? `this.objects`
-                // If we push, it works.
-                // We need a template or params for the spawn.
-            }
+            // For now, assume global target usually? Or specific target?
+            const targets = this.objects.filter(o => o.id === block.target);
+            targets.forEach(target => {
+                this.performAction(target, block.action, block.params);
+            });
         }
     }
 
     handleCollision(a, b) {
         if (!this.scene.logic) return;
         this.scene.logic.filter(l => l.type === 'collision').forEach(block => {
-            // "With": <object-id> -> assumes 'a' is the target or 'b' is the target
-            // One of them must match block.target (the owner of logic?)
-            // Or prompt says: Event: OnCollision, With: <object-id> (target)
-
-            // If block.target (the "owner") is colliding with block.params.with (the other)
             let owner = null;
             let other = null;
 
@@ -88,13 +99,7 @@ export class LogicInterpreter {
             }
 
             if (owner) {
-                if (block.action === 'Destroy') {
-                    // removing from array is tricky during iteration in Engine
-                    owner._shouldDestroy = true;
-                }
-                if (block.action === 'Bounce') {
-                    owner.velocityY = -300; // Mock bounce
-                }
+                this.performAction(owner, block.action, block.params);
             }
         });
     }

@@ -22,5 +22,13 @@ export function generateLogic(prompt, selectedId) {
         ];
     }
 
+    if (promptLower.includes("color")) {
+        const color = promptLower.includes("blue") ? '#0000ff' : (promptLower.includes("green") ? '#00ff00' : '#ff0000');
+        // Default to trigger on Key 'C' for demo purposes if not specified
+        return [
+            { type: 'input', event: 'KeyC', target: target, action: 'ChangeColor', params: { color: color } }
+        ];
+    }
+
     return [];
 }

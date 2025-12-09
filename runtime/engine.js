@@ -87,7 +87,10 @@ export class Engine {
                 const b = this.objects[j];
                 // Check
                 if (this.collision.check(a, b)) {
-                    this.collision.resolve(a, b);
+                    // Only resolve physics if NEITHER is a trigger
+                    if (!a.isTrigger && !b.isTrigger) {
+                        this.collision.resolve(a, b);
+                    }
                     this.logicInterpreter.handleCollision(a, b);
                 }
             }
