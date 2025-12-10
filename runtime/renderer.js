@@ -20,7 +20,7 @@ export class Renderer {
 
         if (this.isDestroyed) {
             // Was destroyed while awaiting init
-            this.app.destroy();
+            if (this.app) this.app.destroy();
             return;
         }
 

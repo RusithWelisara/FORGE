@@ -322,6 +322,8 @@ export function EditorCanvas({ projectData, isPlaying, onRef, onObjectUpdate, se
 
         return () => {
             engine.destroy();
+            engineRef.current = null;
+            gizmoRef.current = null;
             container.removeEventListener('contextmenu', onContextMenu);
             container.removeEventListener('wheel', onWheel);
             container.removeEventListener('mousedown', onMouseDown);
